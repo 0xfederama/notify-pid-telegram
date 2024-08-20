@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import psutil
 import time
 import argparse
@@ -9,6 +10,31 @@ from telegram import Bot
 def is_process_running(pid):
     """Check if a process with the given PID is running."""
     return psutil.pid_exists(pid)
+
+
+def resolve_job_to_pid(job_str):
+    """Resolve a job number (e.g., %1) to its corresponding PID."""
+    job_id = int(job_str.strip("%")) - 1  # Convert to zero-based index
+    current_shell_pid = (
+        os.getppid()
+    )  # Get the parent process ID (assuming it’s the shell)
+
+    # Get the list of child processes of the current shell, sorted by start time
+    child_procs = sorted(
+        (
+            p
+            for p in psutil.Process(current_shell_pid).children()
+            if p.status() == psutil.STATUS_RUNNING
+        ),
+        key=lambda p: p.create_time(),
+    )
+
+    try:
+        # Get the PID of the job with the given job number
+        return child_procs[job_id].pid
+    except IndexError:
+        # Job number is out of range
+        return None
 
 
 def get_process_info(pid):
@@ -38,8 +64,18 @@ async def send_telegram_message(bot_token, chat_id, message):
     await bot.send_message(chat_id=chat_id, text=message)
 
 
-async def main(pid):
-    """Monitor the process with the given PID and send a message when it exits."""
+async def main(pid_or_job):
+    print("main")
+    """Monitor the process identified by either a PID or job number and send a message when it exits."""
+    # Check if the input is a job number (starts with '%')
+    if pid_or_job.startswith("%"):
+        pid = resolve_job_to_pid(pid_or_job)
+        if pid is None:
+            print("NONE")
+            return  # Exit if we cannot resolve the job number to a PID
+    else:
+        pid = int(pid_or_job)
+
     print(f"Monitoring process {pid}...")
     process_info = get_process_info(pid)
     cmdline = None
@@ -47,9 +83,10 @@ async def main(pid):
     if process_info:
         try:
             p = psutil.Process(pid)
-            cmdline = ' '.join(p.cmdline())  # Get the command line that started the process
+            # Get the command line that started the process
+            cmdline = " ".join(p.cmdline())
         except (psutil.NoSuchProcess, psutil.AccessDenied):
-            cmdline = 'unknown'
+            cmdline = "unknown"
 
     while is_process_running(pid):
         time.sleep(5)  # Wait for 5 seconds before checking again
@@ -69,9 +106,7 @@ async def main(pid):
 
     # Build the message
     message = (
-        f"Process {pid} has completed.\n"
-        f"Command: {cmdline}\n"
-        f"Status: {status}\n"
+        f"Process {pid} has completed.\n" f"Command: {cmdline}\n" f"Status: {status}\n"
     )
     if exit_code is not None:
         message += f"Exit Code: {exit_code}\n"
@@ -102,9 +137,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Monitor a process and notify via Telegram when it exits."
     )
-    parser.add_argument("pid", type=int, help="The process ID (PID) to monitor")
+    parser.add_argument("pid", type=str, help="The process ID (PID) or job ID to monitor")
 
     args = parser.parse_args()
-    main(args.pid)
 
     asyncio.run(main(args.pid))
