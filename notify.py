@@ -12,31 +12,6 @@ def is_process_running(pid):
     return psutil.pid_exists(pid)
 
 
-def resolve_job_to_pid(job_str):
-    """Resolve a job number (e.g., %1) to its corresponding PID."""
-    job_id = int(job_str.strip("%")) - 1  # Convert to zero-based index
-    current_shell_pid = (
-        os.getppid()
-    )  # Get the parent process ID (assuming it’s the shell)
-
-    # Get the list of child processes of the current shell, sorted by start time
-    child_procs = sorted(
-        (
-            p
-            for p in psutil.Process(current_shell_pid).children()
-            if p.status() == psutil.STATUS_RUNNING
-        ),
-        key=lambda p: p.create_time(),
-    )
-
-    try:
-        # Get the PID of the job with the given job number
-        return child_procs[job_id].pid
-    except IndexError:
-        # Job number is out of range
-        return None
-
-
 def get_process_info(pid):
     """Retrieve information about the process with the given PID."""
     try:
@@ -64,19 +39,12 @@ async def send_telegram_message(bot_token, chat_id, message):
     await bot.send_message(chat_id=chat_id, text=message)
 
 
-async def main(pid_or_job):
-    print("main")
-    """Monitor the process identified by either a PID or job number and send a message when it exits."""
-    # Check if the input is a job number (starts with '%')
-    if pid_or_job.startswith("%"):
-        pid = resolve_job_to_pid(pid_or_job)
-        if pid is None:
-            print("NONE")
-            return  # Exit if we cannot resolve the job number to a PID
-    else:
-        pid = int(pid_or_job)
-
+async def main(pid):
+    """Monitor the process identified the PID and send a message when it exits."""
     print(f"Monitoring process {pid}...")
+    if pid == os.getpid():
+        print("Cannot monitor the monitor itself")
+        return
     process_info = get_process_info(pid)
     cmdline = None
 
@@ -137,7 +105,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Monitor a process and notify via Telegram when it exits."
     )
-    parser.add_argument("pid", type=str, help="The process ID (PID) or job ID to monitor")
+    parser.add_argument("pid", type=str, help="The process ID (PID) to monitor")
 
     args = parser.parse_args()
 
