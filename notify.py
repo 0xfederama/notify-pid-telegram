@@ -105,7 +105,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Monitor a process and notify via Telegram when it exits."
     )
-    parser.add_argument("pid", type=str, help="The process ID (PID) to monitor")
+    parser.add_argument("pid", type=int, help="The process ID (PID) to monitor")
 
     args = parser.parse_args()
 

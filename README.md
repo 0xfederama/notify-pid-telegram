@@ -32,12 +32,11 @@ notify_tg() {
         echo "Usage: notify_tg <PID>"
         return 1
     fi
-    local original_path=$(pwd)
     cd ~/notify-pid-telegram
     source venv/bin/activate
-    nohup python3 notify.py "$1" >/dev/null 2>&1 &
+    eval "nohup python3 notify.py $1 >/dev/null 2>&1 &"
     deactivate
-    cd "${original_path}"
+    cd - >/dev/null
 }
 ```
 Now you can simply run `notify_tg PID` to monitor the process and send a notification.
