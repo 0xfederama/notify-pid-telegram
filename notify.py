@@ -74,15 +74,17 @@ async def main(pid):
 
     # Build the message
     message = (
-        f"Process {pid} has completed.\n" f"Command: {cmdline}\n" f"Status: {status}\n"
+        f"Process {pid} has completed.\nCommand: {cmdline}\n\nStatus: {status}\n"
     )
     if exit_code is not None:
         message += f"Exit Code: {exit_code}\n"
     if process_info:
         message += (
-            f"CPU Times: {process_info['cpu_times']}\n"
-            f"Memory Info: {process_info['memory_info']}\n"
+            # f"CPU Times: {process_info['cpu_times']}\n"
+            # f"Memory Info: {process_info['memory_info']}\n"
             f"Started at: {time.ctime(process_info['create_time'])}\n"
+            f"Ended at: {time.ctime()}\n"
+            f"Duration: {time.strftime('%Hh %Mm %Ss', time.gmtime(time.time() - process_info['create_time']))}\n"
         )
 
     print(message)
